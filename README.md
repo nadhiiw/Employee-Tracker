@@ -32,3 +32,4 @@ Instructions:
 
 In order to use this application you will need to first run an npm install in your CLI to install the dependencies that have been loaded into the json files for you. Once this is done, run node index.js in your CLI to start the prompts that will walk you through the verious tasks you can perform with this application. Also don't forget to npm install console.table.
 
+![Alt Text]()
