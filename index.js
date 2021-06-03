@@ -1,268 +1,478 @@
 
-const inquirer = require("inquirer")
-const mysql = require("mysql")
-require('console.table');
+const config = require("./config");
+const { prompt } = require("inquirer");
+require("console.table");
 
-const connection = mysql.createConnection({
-    host: "localhost",
-    port: 3306,
-    user: "root",
-    password: "Gadaaw@8824",
-    database: "employees"
-  });
+const art = require("asciiart-logo")
 
-
-// Display logo text, load main prompts
-connection.connect(function(err) {
-    if (err) throw err
-    console.log("Connected as Id" + connection.threadId)
-    startPrompt();
-});
-//================== Initial Prompt =======================//
-function startPrompt() {
-    inquirer.prompt([
-    {
-    type: "list",
-    message: "What would you like to do?",
-    name: "choice",
-    choices: [
-              "View All Employees?", 
-              "View All Employee's By Roles?",
-              "View all Emplyees By Deparments", 
-              "Update Employee",
-              "Add Employee?",
-              "Add Roles?",
-              "Add Department?",
-              "done"
-            ]
-    }
-]).then(function(val) {
-        switch (val.choice) {
-            case "View All Employees?":
-              viewAllEmployees();
-            break;
-    
-          case "View All Employee's By Roles?":
-              viewAllRoles();
-            break;
-          case "View all Emplyees By Deparments":
-              viewAllDepartments();
-            break;
-          
-          case "Add Employee?":
-                addEmployee();
-              break;
-
-          case "Update Employee":
-                updateEmployee();
-              break;
-      
-            case "Add Roles?":
-                addRole();
-              break;
-      
-            case "Add Department?":
-                addDepartment();
-              break;
-
-    
-            }
-    })
-}
-//============= View All Employees ==========================//
-function viewAllEmployees() {
-    connection.query("SELECT employee.first_name, employee.last_name, role.title, role.salary, department.name, CONCAT(e.first_name, ' ' ,e.last_name) AS Manager FROM employee INNER JOIN role on role.id = employee.role_id INNER JOIN department on department.id = role.department_id left join employee e on employee.manager_id = e.id;", 
-    function(err, res) {
-      if (err) throw err
-      console.table(res)
-      startPrompt()
-  })
-}
-//============= View All Roles ==========================//
-function viewAllRoles() {
-  connection.query("SELECT employee.first_name, employee.last_name, role.title AS Title FROM employee JOIN role ON employee.role_id = role.id;", 
-  function(err, res) {
-  if (err) throw err
-  console.table(res)
-  startPrompt()
-  })
-}
-//============= View All Employees By Departments ==========================//
-function viewAllDepartments() {
-  connection.query("SELECT employee.first_name, employee.last_name, department.name AS Department FROM employee JOIN role ON employee.role_id = role.id JOIN department ON role.department_id = department.id ORDER BY employee.id;", 
-  function(err, res) {
-    if (err) throw err
-    console.table(res)
-    startPrompt()
-  })
-}
-
-//================= Select Role Quieries Role Title for Add Employee Prompt ===========//
-var roleArr = [];
-function selectRole() {
-  connection.query("SELECT * FROM role", function(err, res) {
-    if (err) throw err
-    for (var i = 0; i < res.length; i++) {
-      roleArr.push(res[i].title);
-    }
-
-  })
-  return roleArr;
-}
-//================= Select Role Quieries The Managers for Add Employee Prompt ===========//
-var managersArr = [];
-function selectManager() {
-  connection.query("SELECT first_name, last_name FROM employee WHERE manager_id IS NULL", function(err, res) {
-    if (err) throw err
-    for (var i = 0; i < res.length; i++) {
-      managersArr.push(res[i].first_name);
-    }
-
-  })
-  return managersArr;
-}
-//============= Add Employee ==========================//
-function addEmployee() { 
-    inquirer.prompt([
+// Ask main questions
+async function mainQuestions() {
+    const { choice } = await prompt([
         {
-          name: "firstname",
-          type: "input",
-          message: "Enter their first name "
-        },
-        {
-          name: "lastname",
-          type: "input",
-          message: "Enter their last name "
-        },
-        {
-          name: "role",
-          type: "list",
-          message: "What is their role? ",
-          choices: selectRole()
-        },
-        {
+            type: "list",
             name: "choice",
-            type: "rawlist",
-            message: "Whats their managers name?",
-            choices: selectManager()
+            message: "What would you like to do?",
+            choices: [
+                {
+                    name: "View All Employees",
+                    value: "ALL_EMPLOYEES"
+                },
+                {
+                    name: "View All Employees By Department",
+                    value: "ALL_EMPLOYEES_BY_DEPARTMENT"
+                },
+                {
+                    name: "Add Employee",
+                    value: "ADD_EMPLOYEE"
+                },
+                {
+                    name: "Remove Employee",
+                    value: "REMOVE_EMPLOYEE"
+                },
+                {
+                    name: "View All Roles",
+                    value: "ALL_ROLES"
+                },
+                {
+                    name: "Add Role",
+                    value: "ADD_ROLE"
+                },
+                {
+                    name: "Remove Role",
+                    value: "REMOVE_ROLE"
+                },
+                {
+                    name: "View All Departments",
+                    value: "ALL_DEPARTMENTS"
+                },
+                {
+                    name: "Add Department",
+                    value: "ADD_DEPARTMENT"
+                },
+                {
+                    name: "Remove Department",
+                    value: "REMOVE_DEPARTMENT"
+                },
+                {
+                    name: "Update Employee Role",
+                    value: "UPDATE_EMPLOYEE_ROLE"
+                },
+                {
+                    name: "Update Employee Manager",
+                    value: "UPDATE_EMPLOYEE_MANAGER"
+                },
+                {
+                    name: "View All Employees By Manager",
+                    value: "VIEW_EMPLOYEES_BY_MANAGER"
+                },
+                {
+                    name: "Quit",
+                    value: "QUIT"
+                }
+            ]
         }
-    ]).then(function (val) {
-      var roleId = selectRole().indexOf(val.role) + 1
-      var managerId = selectManager().indexOf(val.choice) + 1
-      connection.query("INSERT INTO employee SET ?", 
-      {
-          first_name: val.firstName,
-          last_name: val.lastName,
-          manager_id: managerId,
-          role_id: roleId
-          
-      }, function(err){
-          if (err) throw err
-          console.table(val)
-          startPrompt()
-      })
+    ]);
 
-  })
+    // Get answer
+    switch (choice) {
+        case "ALL_EMPLOYEES":
+            return allEmployees();
+        case "ALL_ROLES":
+            return allRoles();
+        case "ALL_DEPARTMENTS":
+            return allDepartments();
+        case "ALL_EMPLOYEES_BY_DEPARTMENT":
+            return allEmployeesByDepartment();
+        case "ADD_EMPLOYEE":
+            return addEmployee();
+        case "ADD_DEPARTMENT":
+            return addDepartment();
+        case "ADD_ROLE":
+            return addRole();
+        case "REMOVE_EMPLOYEE":
+            return removeEmployee();
+        case "REMOVE_DEPARTMENT":
+            return removeDepartment();
+        case "REMOVE_ROLE":
+            return removeRole();
+        case "UPDATE_EMPLOYEE_ROLE":
+            return updateEmployeeRole();
+        case "UPDATE_EMPLOYEE_MANAGER":
+            return updateEmployeeManager();
+        case "VIEW_EMPLOYEES_BY_MANAGER":
+            return allEmployeesByManager();
+        default:
+            return quit();
+    }
 }
-//============= Update Employee ==========================//
-  function updateEmployee() {
-    connection.query("SELECT employee.last_name, role.title FROM employee JOIN role ON employee.role_id = role.id;", function(err, res) {
-    // console.log(res)
-     if (err) throw err
-     console.log(res)
-    inquirer.prompt([
-          {
-            name: "lastName",
-            type: "rawlist",
-            choices: function() {
-              var lastName = [];
-              for (var i = 0; i < res.length; i++) {
-                lastName.push(res[i].last_name);
-              }
-              return lastName;
-            },
-            message: "What is the Employee's last name? ",
-          },
-          {
-            name: "role",
-            type: "rawlist",
-            message: "What is the Employees new title? ",
-            choices: selectRole()
-          },
-      ]).then(function(val) {
-        var roleId = selectRole().indexOf(val.role) + 1
-        connection.query("UPDATE employee SET WHERE ?", 
-        {
-          last_name: val.lastName
-           
-        }, 
-        {
-          role_id: roleId
-           
-        }, 
-        function(err){
-            if (err) throw err
-            console.table(val)
-            startPrompt()
-        })
-  
-    });
-  });
 
-  }
-//============= Add Employee Role ==========================//
-function addRole() { 
-  connection.query("SELECT role.title AS Title, role.salary AS Salary FROM role",   function(err, res) {
-    inquirer.prompt([
+// Create quit function
+function quit() {
+
+    console.log(art({
+        name: "GOODBYE!",
+        font: "DOS Rebel",
+        borderColor: 'bold-red',
+        logoColor: 'bold-green'}).render()
+        );
+
+    process.exit();
+}
+
+// Show all employees function
+async function allEmployees() {
+    const employees = await config.allEmployees();
+
+    // Get employees database
+    console.table(employees);
+
+    mainQuestions();
+}
+
+// Show all roles function
+async function allRoles() {
+    const roles = await config.allRoles();
+
+    console.table(roles);
+
+    mainQuestions();
+}
+
+// Show all departments function
+async function allDepartments() {
+    const departments = await config.allDepartments();
+
+    console.table(departments);
+
+    mainQuestions();
+}
+
+// Create add employee function
+async function addEmployee() {
+    const roles = await config.allRoles();
+    const employees = await config.allEmployees();
+
+    const employee = await prompt([
         {
-          name: "Title",
-          type: "input",
-          message: "What is the roles Title?"
+            name: "first_name",
+            message: "What is the employee's first name?"
         },
         {
-          name: "Salary",
-          type: "input",
-          message: "What is the Salary?"
-
-        } 
-    ]).then(function(res) {
-        connection.query(
-            "INSERT INTO role SET ?",
-            {
-              title: res.Title,
-              salary: res.Salary,
-            },
-            function(err) {
-                if (err) throw err
-                console.table(res);
-                startPrompt();
-            }
-        )
-
-    });
-  });
-  }
-//============= Add Department ==========================//
-function addDepartment() { 
-
-    inquirer.prompt([
-        {
-          name: "name",
-          type: "input",
-          message: "What Department would you like to add?"
+            name: "last_name",
+            message: "What is the employee's last name?"
         }
-    ]).then(function(res) {
-        var query = connection.query(
-            "INSERT INTO department SET ? ",
-            {
-              name: res.name
-            
-            },
-            function(err) {
-                if (err) throw err
-                console.table(res);
-                startPrompt();
-            }
-        )
-    })
-  }
+    ]);
+
+    const roleChoices = roles.map(({ id, title }) => ({
+        name: title,
+        value: id
+    }));
+
+    const { roleId } = await prompt({
+        type: "list",
+        name: "roleId",
+        message: "What is the employee's role?",
+        choices: roleChoices
+    });
+
+    employee.role_id = roleId;
+
+    const managerChoices = employees.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+    }));
+    managerChoices.unshift({ name: "None", value: null });
+
+    const { managerId } = await prompt({
+        type: "list",
+        name: "managerId",
+        message: "Who is the employee's manager?",
+        choices: managerChoices
+    });
+
+    employee.manager_id = managerId;
+
+    await config.createEmployee(employee);
+
+    console.log(
+        `Added ${employee.first_name} ${employee.last_name} to the database`
+    );
+
+    mainQuestions();
+}
+
+// Create add department function
+async function addDepartment() {
+    const department = await prompt([
+        {
+            name: "name",
+            message: "What is the name of the department?"
+        }
+    ]);
+
+    await config.createDepartment(department);
+
+    console.log(`Added ${department.name} to the database`);
+
+    mainQuestions();
+}
+
+// Create add role function
+async function addRole() {
+    const departments = await config.allDepartments();
+
+    const departmentChoices = departments.map(({ id, name }) => ({
+        name: name,
+        value: id
+    }));
+
+    const role = await prompt([
+        {
+            name: "title",
+            message: "What is the name of the role?"
+        },
+        {
+            name: "salary",
+            message: "What is the salary of the role?"
+        },
+        {
+            type: "list",
+            name: "department_id",
+            message: "Which department does the role belong to?",
+            choices: departmentChoices
+        }
+    ]);
+
+    await config.createRole(role);
+
+    console.log(`Added ${role.title} to the database`);
+
+    mainQuestions();
+}
+
+// Remove employee from table function
+async function removeEmployee() {
+    const employees = await config.allEmployees();
+
+    const employeeChoices = employees.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+    }));
+
+    const { employeeId } = await prompt([
+        {
+            type: "list",
+            name: "employeeId",
+            message: "Which employee do you want to remove?",
+            choices: employeeChoices
+        }
+    ]);
+
+    await config.removeEmployee(employeeId);
+
+    console.log("Employee is removed");
+
+    mainQuestions();
+}
+
+// Remove role from table function
+async function removeRole() {
+    const roles = await config.allRoles();
+
+    const roleChoices = roles.map(({ id, title }) => ({
+        name: title,
+        value: id
+    }));
+
+    const { roleId } = await prompt([
+        {
+            type: "list",
+            name: "roleId",
+            message:
+                "Which role do you want to remove?",
+            choices: roleChoices
+        }
+    ]);
+
+    await config.removeRole(roleId);
+
+    console.log("Role is removed");
+
+    mainQuestions();
+}
+
+// Remove department from table function
+async function removeDepartment() {
+    const departments = await config.allDepartments();
+
+    const departmentChoices = departments.map(({ id, name }) => ({
+        name: name,
+        value: id
+    }));
+
+    const { departmentId } = await prompt({
+        type: "list",
+        name: "departmentId",
+        message:
+            "Which department would you like to remove?",
+        choices: departmentChoices
+    });
+
+    await config.removeDepartment(departmentId);
+
+    console.log(`Department is removed`);
+
+    mainQuestions();
+}
+
+// Show all employees by department function
+async function allEmployeesByDepartment() {
+    const departments = await config.allDepartments();
+
+    const departmentChoices = departments.map(({ id, name }) => ({
+        name: name,
+        value: id
+    }));
+
+    const { departmentId } = await prompt([
+        {
+            type: "list",
+            name: "departmentId",
+            message: "Which department would you like to see employees for?",
+            choices: departmentChoices
+        }
+    ]);
+
+    const employees = await config.allEmployeesByDepartment(departmentId);
+
+    console.table(employees);
+
+    mainQuestions();
+}
+
+// Create a function to update an employee role
+async function updateEmployeeRole() {
+    const employees = await config.allEmployees();
+
+    const employeeChoices = employees.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+    }));
+
+    const { employeeId } = await prompt([
+        {
+            type: "list",
+            name: "employeeId",
+            message: "Which employee's role do you want to update?",
+            choices: employeeChoices
+        }
+    ]);
+
+    const roles = await config.allRoles();
+
+    const roleChoices = roles.map(({ id, title }) => ({
+        name: title,
+        value: id
+    }));
+
+    const { roleId } = await prompt([
+        {
+            type: "list",
+            name: "roleId",
+            message: "Which role do you want to assign the selected employee?",
+            choices: roleChoices
+        }
+    ]);
+
+    await config.updateEmployeeRole(employeeId, roleId);
+
+    console.log("Updated employee's role");
+
+    mainQuestions();
+}
+
+// Create a function to update an employee's manager
+async function updateEmployeeManager() {
+    const employees = await config.allEmployees();
+
+    const employeeChoices = employees.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+    }));
+
+    const { employeeId } = await prompt([
+        {
+            type: "list",
+            name: "employeeId",
+            message: "Which employee's manager do you want to update?",
+            choices: employeeChoices
+        }
+    ]);
+
+    const managers = await config.allPossibleManagers(employeeId);
+
+    const managerChoices = managers.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+    }));
+
+    const { managerId } = await prompt([
+        {
+            type: "list",
+            name: "managerId",
+            message:
+                "Which employee do you want to set as manager for the selected employee?",
+            choices: managerChoices
+        }
+    ]);
+
+    await config.updateEmployeeManager(employeeId, managerId);
+
+    console.log("Updated employee's manager");
+
+    mainQuestions();
+}
+
+// Show all employees by manager function
+async function allEmployeesByManager() {
+    const managers = await config.allEmployees();
+
+    const managerChoices = managers.map(({ id, first_name, last_name }) => ({
+        name: `${first_name} ${last_name}`,
+        value: id
+    }));
+
+    const { managerId } = await prompt([
+        {
+            type: "list",
+            name: "managerId",
+            message: "Which employee do you want to see direct reports for?",
+            choices: managerChoices
+        }
+    ]);
+
+    const employees = await config.allEmployeesByManager(managerId);
+
+    if (employees.length === 0) {
+        console.log("The selected employee has no direct reports");
+    } else {
+        console.table(employees);
+    }
+
+    mainQuestions();
+}
+
+// Create logo
+function addArt() {
+
+    console.log(art({
+        name: "Employee Tracker",
+        font: "DOS Rebel",
+        borderColor: 'bold-red',
+        logoColor: 'bold-green'}).render()
+        );
+  
+    mainQuestions();
+}
+
+addArt();

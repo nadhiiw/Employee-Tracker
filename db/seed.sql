@@ -7,7 +7,7 @@ VALUE ("Sales"),("Engineering"),("Finance"),("Legal");
 
 
 -- EMPLOYEE ROLE SEEDS -------
-INSERT INTO roles (title, salary, department_id)
+INSERT INTO role (title, salary, department_id)
 VALUE ("Lead Engineer", 150000, 2),
       ("Legal Team Lead", 250000, 4),
       ("Accountant", 125000, 3),
